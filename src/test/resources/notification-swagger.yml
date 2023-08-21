@@ -1,0 +1,1276 @@
+openapi: 3.0.3
+
+info:
+  title: Commercial Event Notifications API
+  description: >-
+    The Commercial Event Notifications API allows clients to create and manage subscriptions to Commercial application events and to receive notifications based on those subscriptions. The first release of this API provides notifications of authorization transactions for ICCP VCNs.
+  version: 1.2.0
+  contact:
+    name: Commercial Support
+    email: commercial.support@mastercard.com
+
+servers:
+  - url: 'https://sandbox.api.mastercard.com/commercial-event-notifications'
+    description: Sandbox server
+  - url: 'https://api.mastercard.com/commercial-event-notifications'
+    description: Production server
+
+paths:
+  /fieldmappings:
+    get:
+      description: Retrieve field information for notification message content, which can be used to set up subscription filter specifications for those notifications.
+      tags:
+        - FieldMapping
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FieldMapping'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-400'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-403'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-500'
+
+  /subscriptions:
+    post:
+      description: Create a subscription that will cause notifications to be generated for the specified events.
+      tags:
+        - Subscription
+      requestBody:
+        description: Subscription
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Subscription'
+            examples:
+              Subscription With Child Specification:
+                $ref: '#/components/examples/SubscriptionWithChildSpecification'
+
+      responses:
+        '201':
+          description: CREATED
+          headers:
+            Location:
+              description: URI with the ID that identifies the newly created subscription
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-400'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-403'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-500'
+
+      callbacks:
+        pushNotificationsMessage: # This message is sent when there are notifications ready for push delivery
+          'to registered notification url': # The callback (webhook) URL is registered during onboarding
+            post:
+              requestBody: # Content of the push notifications message
+                description: Push Notifications message for subscribed events
+                content:
+                  application/json:
+                    schema:
+                      type: array #Array of notification resources. Note: does not include the wrapper structure that is present in the response to a GET on /notifications
+                      items:
+                        $ref: '#/components/schemas/notification'
+              responses:
+                '200':
+                  description: |
+                    Your server implementation should return this HTTP status code
+                    if the data was received successfully
+                '500':
+                  description: |
+                    If your server returns this or any non-200 HTTP status code
+                    the service will retry the delivery a limited number of times
+
+    get:
+      description: Retrieve the subscriptions defined for this client.
+      tags:
+        - Subscription
+      operationId: getAllSubscription
+      parameters:
+        - in: query
+          name: offset
+          description: >-
+            For pagination of responses - the offset from which to calculate the list of returned
+            subscriptions. Defaults to 0
+          schema:
+            type: integer
+          required: false
+          example: '0'
+        - in: query
+          name: limit
+          description: >-
+            Number of Subscriptions to be returned per page. By Default 25 Subscriptions are
+            returned per page
+          schema:
+            type: integer
+          required: false
+          example: '10'
+        - in: query
+          name: sort
+          description: >-
+            Sort the returned subscriptions using the indicated fields and direction. For example, 'name' sorts by name ascending, '-id' sorts by subscription id descending.
+            Defaults to sort by subscription name in ascending order
+          schema:
+            type: string
+          required: false
+          example: name
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionResponse'
+              examples:
+                Get Subscription Response:
+                  $ref: '#/components/examples/GetSubscriptionResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-400'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-403'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-500'
+
+  '/subscriptions/{id}':
+    get:
+      description: Retrieve the details of a subscription.
+      tags:
+        - Subscription
+      operationId: getSubscription
+      parameters:
+        - in: path
+          name: id
+          description: Subscription Id
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-403'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-500'
+    put:
+      description: Update an existing subscription.
+      tags:
+        - Subscription
+      operationId: updateSubscription
+      parameters:
+        - in: path
+          name: id
+          description: Subscription id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        description: Subscription
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Subscription'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-400'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-403'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-500'
+    delete:
+      description: Deletes a subscription, with the effect that no further notifications will be generated for that subscription.
+      tags:
+        - Subscription
+      parameters:
+        - in: path
+          name: id
+          description: Subscription id
+          schema:
+            type: string
+          required: true
+      responses:
+        '204':
+          description: No content, indicates that the subscription has been deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-403'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-500'
+
+
+
+  /notifications:
+    get:
+      description: >
+        This endpoint represents the collection of notifications that have been generated for the client within the retention period for notifications.
+        A GET on this endpoint retrieves the notifications in a paginated manner.
+      tags:
+        - Notifications
+      parameters:
+        - name: start
+          description: Start date and time in UTC of the notifications to retrieve, including the start date-time specified
+          schema:
+            type: string
+            format: date-time
+          in: query
+          required: true
+          example: '2019-01-30T09:00:00.000Z'
+        - name: end
+          description: End date and time in UTC of the notifications to retrieve, EXCLUDING the end date-time specified. This field is specified on an 'excluding' basis to allow the same value to be used as a start date-time in a later request without the risk of having overlapping data or gaps in the data
+          schema:
+            type: string
+            format: date-time
+          in: query
+          required: true
+          example: '2019-01-30T10:00:00.000Z'
+        - name: subscription_name
+          description: Subscription name for which to return notifications
+          schema:
+            type: array
+            items:
+              type: string
+          in: query
+          required: false
+          example: 'Unique subscription name'
+        - name: push_status
+          description: >-
+            Push notification delivery status (Example: FAILED,PENDING,DELIVERED,NOT_APPLICABLE). Allows the client to request a subset of notifications based on their push delivery status, e.g. to request all except those already delivered by the push mechanism
+          schema:
+            type: array
+            items:
+              type: string
+          in: query
+          required: false
+          example: 'PENDING'
+        - name: offset
+          description: For pagination - the offset within the current response stream of the notifications to read from
+          schema:
+            type: integer
+          in: query
+          required: false
+          example: '0'
+        - name: limit
+          description: For pagination - the number of notifications to return in a single response
+          schema:
+            type: integer
+          in: query
+          required: false
+          example: '50'
+      responses:
+        '200':
+          description: Collection of notification events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsWrapper'
+              examples:
+                Notification Response Example:
+                  $ref: '#/components/examples/GetNotificationResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-400'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-403'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error-500'
+
+components:
+  schemas:
+    Subscription:
+      properties:
+        id:
+          description: Subscription id, auto-generated by the system and read-only for the client
+          type: string
+          minLength: 1
+          maxLength: 255
+          readOnly: true
+          example: 'CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724070'
+        name:
+          description: Subscription name - must be unique for the client and must comprise letters,
+            numbers, dashes and underscores only. To check for uniqueness, you can retrieve the existing collection of subscriptions by performing a GET on the /subscriptions resource
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: 'Enter_unique_subscription_name_here'
+        subjectType:
+          description: The type of event to which this subscription refers. Currently allowed values are 'PAYMENT_AUTHORIZATION' or 'PAYMENT_UPDATE'
+          type: string
+          default: PAYMENT_AUTHORIZATION
+          enum: [PAYMENT_AUTHORIZATION, PAYMENT_UPDATE]
+
+        subscriberId:
+          description: The id of the subscriber (client) to which the subscription belongs
+          type: string
+          minLength: 1
+          maxLength: 255
+          readOnly: true
+          example: 'CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724071'
+        active:
+          description: Denotes whether the subscription is active (in which case notifications will be generated for matching events) or not (in which case no notifications will be generated for this subscription)
+          type: boolean
+          example: true
+        specifications:
+          description: A list of criteria specifications that define what events will cause notifications to be generated. If the list of specifications is empty, then notifications will be generated for all events for the specified subject type that the client is entitled to receive.
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecificationRequest'
+      required:
+        - name
+        - active
+        - subjectType
+
+    SpecificationRequest:
+      description: Specifies criteria to determine whether an event should cause a notification to be generated.
+      type: object
+      properties:
+        id:
+          description: Specification id, auto-generated by the system and read-only for the client
+          type: string
+          minLength: 1
+          maxLength: 255
+          readOnly: true
+          example: 'CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724072'
+        type:
+          description: The type of item to which the criteria refers. Currently the type 'FIELD' is allowed, which refers to matching a field in the notification itself
+          type: string
+          default: FIELD
+          example: 'FIELD'
+        operator:
+          description: The operator that defines how this specification (criteria) logically relates to other specifications in the list. The first specification in the list will have an operator of 'WHERE' and subsequent specifications will have an 'AND' or 'OR' relationship with their preceding specification
+          type: string
+          default: WHERE
+          example: WHERE
+        fieldMappingName:
+          description: The name of the field that is to be checked
+          type: string
+          example: purchaseRequest.rcnAlias
+        fieldOperator:
+          description: The check operation that is to be performed. Currently one of allowed values are 'EQUALS', 'GREATER_THAN', 'LESS_THAN', 'BETWEEN'
+          type: string
+          default: EQUALS
+          example: 'EQUALS'
+        expectedContent:
+          $ref: '#/components/schemas/FieldContent'
+        children:
+          description: A list of nested child specifications, used where needed to implement complex matching logic
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecificationRequest'
+      required:
+        - type
+        - operator
+        - fieldMappingName
+        - fieldOperator
+        - expectedContent
+
+    FieldMapping:
+      description: A collection of field definitions any of which can be used to specify matching criteria when creating a subscription.
+      type: object
+      properties:
+        id:
+          description: Field mapping id
+          type: string
+          minLength: 1
+          maxLength: 255
+          readOnly: true
+          example: 'CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724073'
+        name:
+          description: The name used to refer to the field in the specification criteria
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: 'purchaseRequest.rcnAlias'
+        displayName:
+          description: Descriptive name of the field
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: 'Purchase request RCN alias'
+        subjectType:
+          description: The type of subject to which the field refers. Currently allowed values are 'PAYMENT_AUTHORIZATION' or 'PAYMENT_UPDATE
+          type: string
+          default: PAYMENT_AUTHORIZATION
+          example: 'PAYMENT_AUTHORIZATION'
+        contentType:
+          description: What type of information the field (and therefore the matching criteria for that field) will contain. Currently one of allowed values are 'INTEGER', 'DECIMAL', 'TEXT', 'DATE', 'CURRENCY'
+          type: string
+          default: TEXT
+          example: TEXT
+
+    FieldContent:
+      description: The structure used to specify what content in the field should cause a match.
+      type: object
+      required:
+        - contentType
+        - value
+      properties:
+        contentType:
+          description: The type of value that is being checked. Currently one of allowed values are 'INTEGER', 'DECIMAL', 'TEXT', 'DATE', 'CURRENCY'
+          type: string
+          default: TEXT
+        value:
+          description: The actual value to be checked
+          type: object
+          example: 'Travel Expense RCN'
+        anotherValue:
+          description: An additional value to be checked, if the match operator takes more than one value (e.g. 'BETWEEN')
+          type: object
+
+    SubscriptionResponse:
+      properties:
+        id:
+          description: Subscription id, auto-generated by the system and read-only for the client
+          type: string
+          minLength: 1
+          maxLength: 255
+          readOnly: true
+          example: 'CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724070'
+        name:
+          description: Subscription name - must be unique for the client and must comprise letters,
+            numbers, dashes and underscores only. To check for uniqueness, you can retrieve the existing collection of subscriptions by performing a GET on the /subscriptions resource
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: 'Enter_unique_subscription_name_here'
+        subjectType:
+          description: The type of event to which this subscription refers. Currently allowed values are  'PAYMENT_AUTHORIZATION' or 'PAYMENT_UPDATE
+          type: string
+          default: PAYMENT_AUTHORIZATION
+          enum: [PAYMENT_AUTHORIZATION, PAYMENT_UPDATE]
+        subscriberId:
+          description: The id of the subscriber (client) to which the subscription belongs
+          type: string
+          minLength: 1
+          maxLength: 255
+          readOnly: true
+          example: 'CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724071'
+        active:
+          description: Denotes whether the subscription is active (in which case notifications will be generated for matching events) or not (in which case no notifications will be generated for this subscription)
+          type: boolean
+          example: true
+        specifications:
+          description: A list of criteria specifications that define what events will cause notifications to be generated. If the list of specifications is empty, then notifications will be generated for all events for the specified subject type that the client is entitled to receive.
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecificationResponse'
+      required:
+        - name
+        - active
+        - subjectType
+
+    SpecificationResponse:
+      description: Specifies criteria to determine whether an event should cause a notification to be generated.
+      type: object
+      properties:
+        id:
+          description: Specification id, auto-generated by the system and read-only for the client
+          type: string
+          minLength: 1
+          maxLength: 255
+          readOnly: true
+          example: 'CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724072'
+        type:
+          description: The type of item to which the criteria refers. Currently the type 'FIELD' is allowed, which refers to matching a field in the notification itself
+          type: string
+          default: FIELD
+          example: 'FIELD'
+        operator:
+          description: The operator that defines how this specification (criteria) logically relates to other specifications in the list. The first specification in the list will have an operator of 'WHERE' and subsequent specifications will have an 'AND' or 'OR' relationship with their preceding specification
+          type: string
+          default: WHERE
+          example: WHERE
+        fieldMapping:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/FieldMapping'
+        fieldOperator:
+          description: The check operation that is to be performed. Currently one of allowed values are 'EQUALS', 'GREATER_THAN', 'LESS_THAN', 'BETWEEN'
+          type: string
+          default: EQUALS
+          example: 'EQUALS'
+        expectedContent:
+          $ref: '#/components/schemas/FieldContent'
+        children:
+          description: A list of nested child specifications, used where needed to implement complex matching logic
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecificationResponse'
+      required:
+        - type
+        - operator
+        - fieldMappingName
+        - fieldOperator
+        - expectedContent
+
+    NotificationContent:
+      description: The content of the notification, the structure of which depends on the subject.
+      type: object
+      properties:
+        messageTypeIndicator:
+          description: Message type indicator
+          type: string
+          example: '0110'
+        systemTraceAuditNumber:
+          description: System trace indicator
+          type: string
+          example: '011174'
+        financialNetworkCode:
+          description: Financial network code
+          type: string
+          example: 'MCC'
+        banknetReferenceNumber:
+          description: Banknet reference number
+          type: string
+          example: 'Q4A91A'
+        transactionAmount:
+          description: Transaction amount
+          type: integer
+          example: 7550
+        transactionCurrencyCode:
+          description: Transaction currency code (alpha)
+          type: string
+          example: 'USD'
+        billingAmount:
+          description: Cardholder billing amount
+          type: integer
+          example: 7550
+        billingCurrencyCode:
+          description: Cardholder billing currency code (alpha)
+          type: string
+          example: 'USD'
+        responseCode:
+          description: Response code
+          type: string
+          example: '00'
+        authorizationCode:
+          description: Authorization code
+          type: string
+          example: '502359'
+        transmissionRawDate:
+          description: Transmission date in the format MMDD
+          type: string
+          example: '1103'
+        transmissionRawTime:
+          description: Transmission time in the format HHmmss
+          type: string
+          example: '101611'
+        settlementDate:
+          description: Date, Settlement in the format MMDD
+          type: string
+          example: '0930'
+        cardHolderTransactionTypeCode:
+          description: Cardholder transaction type code
+          type: string
+          example: '00'
+        posTransactionStatus:
+          description: POS transaction status
+          type: string
+          example: '0'
+        traceId:
+          description: Trace id
+          type: string
+          example: 'MCC9999991231  '
+        merchant:
+          description: Merchant details
+          type: object
+          properties:
+            merchantId:
+              description: Merchant identifier
+              type: string
+              example: '497520000000000'
+            categoryCode:
+              description: Merchant category code
+              type: string
+              example: '5542'
+            name:
+              description: Merchant name
+              type: string
+              example: 'JASPERHITECH'
+            city:
+              description: Merchant city
+              type: string
+              example: 'Jasper'
+            stateOrCountryCode:
+              description: Merchant state (for US) or county code
+              type: string
+              example: 'TN'
+        realPaymentCard:
+          description: Real Payment Card Details
+          type: object
+          properties:
+            number:
+              description: Card number (PAN) (masked)
+              type: string
+              example: '************0112'
+            expiryMonth:
+              description: Card expiry month
+              type: string
+              example: '12'
+            expiryYear:
+              description: Card expiry year
+              type: string
+              example: '24'
+        virtualPaymentCard:
+          description: Virtual Payment Card Details
+          type: object
+          properties:
+            number:
+              description: Card number (masked)
+              type: string
+              example: '************6213'
+            expiryMonth:
+              description: Card expiry month
+              type: string
+              example: '09'
+            expiryYear:
+              description: Card expiry year
+              type: string
+              example: '27'
+        inControlOnBehalfServiceResult:
+          description: In Control Service Result Details.
+          type: object
+          properties:
+            rcnServiceResultCode:
+              description: In Control service result for real cards
+              type: string
+              example: ''
+            vcnServiceResultCode:
+              description: In Control service result for virtual cards
+              type: string
+              example: 'V'
+        originalMessage:
+          description: Original message identifying information, in the case of a follow-up message
+          type: object
+          properties:
+            messageTypeIndicator:
+              description: Original message type indicator
+              type: string
+              example: '0110'
+            systemTraceAuditNumber:
+              description: Original system trace audit number
+              type: string
+              example: '11174'
+            transmissionRawDateTime:
+              description: Original transmission date and time in the format MMDDHHmmss
+              type: string
+              example: '1029112800'
+        advice:
+          description: Advice information (valid for advice messages only, MTI=04xx)
+          type: object
+          properties:
+            reasonCode:
+              description: Advice reason code
+              type: string
+              example: '650'
+        replacementAmounts:
+          description: Replacement Amounts (for reversals, the new values that replace the amounts in the original transaction)
+          type: object
+          properties:
+            transactionAmount:
+              description: Replacement transaction amount
+              type: integer
+              example: 1200
+            settlementAmount:
+              description: Replacement settlement amount
+              type: integer
+              example: 1200
+            billingAmount:
+              description: Replacement billing amount
+              type: integer
+              example: 1200
+        purchaseRequest:
+          description: Purchase Request Details
+          type: object
+          properties:
+            purchaseRequestId:
+              description: ICCP Purchase Request ID - uniquely identifies the purchase request and VCN
+              type: integer
+              example: 5213
+            rcnAlias:
+              description: Real card number alias
+              type: string
+              example: 'Travel Expense RCN'
+            companyId:
+              description: ICCP Company ID - uniquely identifies the company that created the VCN
+              type: integer
+              example: 233191
+            companyGuid:
+              description: ICCP Company GUID - alternative ID to uniquely identify the company that created the VCN
+              type: string
+              example: 'SENTTY9951972A6FC0206CB494B560E5E6DC5D02A2BD21D89612EF4A18358ECC777DCF1494921797'
+            issuerGuid:
+              description: ICCP Issuer GUID - uniquely identifies the issuer of the RCN funding the VCN
+              type: string
+              example: 'SENTTY5E4C4B4E0D1BF5991E64A1E0745F40A85B2510CE48EB537011DCED3C483669D61494938440'
+    CommercialBpsNotificationContent:
+      description: The content of the notification, the structure of which depends on the subject.
+      type: object
+      properties:
+        source:
+          description: Originating system of the notification
+          type: string
+          example: 'BPS'
+        purchaseRequestId:
+          description: ICCP Purchase Request ID - uniquely identifies the purchase request and VCN
+          type: string
+          example: '360147'
+        bpsTransactionId:
+          description: BPS Payment Instruction ID
+          type: string
+          example: '65098ff7-54f9-42fe-b89c-3fff8470658c'
+        status:
+          description: Status of the purchase request in BPS
+          type: string
+          example: 'APPROVED'
+        updatedDate:
+          description: Last updated date(UTC) on which the purchase request is updated in BPS
+          type: string
+          example: '2021-09-08T16:06:11.598505Z'
+        transactionIdentification:
+          description: Identification of the authorization transaction
+          type: object
+          properties:
+            approvalCode:
+              description: Value assigned by the approval entity indicating approval
+              type: string
+              example: 'SUBMITTED'
+            retrievalReferenceNumber:
+              description: Reference supplied by the system retaining the original source information and used to assist in locating that information or a copy thereof.
+              type: string
+              example: 'testRetrievalReferenceNumber'
+            transactionReference:
+              description: Identification of the transaction by the card acceptor. It may appear on the receipt of the cardholder. It remains unchanged throughout the lifetime of the transaction.
+              type: string
+              example: 'testTransactionReference'
+            transactionDateTime:
+              description: Local date and time of the transaction assigned by the POI (Point Of Interaction)
+              type: string
+              example: '2021-08-17T17:37:23.230Z'
+        statusReasonInformation:
+          description: Identification of the authorization transaction
+          type: object
+          properties:
+            reasonCode:
+              description: Specifies the reason for the status
+              type: string
+            description:
+              description: Specifies the description for the status
+              type: string
+        errors:
+          description: Error Codes from ilink
+          type: object
+          properties:
+            reasonCode:
+              description: Specifies the reason for the error
+              type: string
+            description:
+              description: Specifies the description for the error
+              type: string
+
+    notification:
+      description: The notification structure - contains information about the notification and the notification content itself
+      type: object
+      properties:
+        subject:
+          description: The subject or type of event to which this notification applies
+          type: string
+          example: 'PAYMENT_AUTHORIZATION'
+        subscriptionName:
+          description: Name of the subscription for which this notification was generated
+          type: string
+          example: 'subscription name'
+        pushStatus:
+          description: Whether or not this notification has been queued for pushing to the client, and the status of the delivery attempt. Currently One of allowed values are 'FAILED', 'PENDING', 'DELIVERED', 'NOT_APPLICABLE'
+          type: string
+          example: 'DELIVERED'
+        createdTimestamp:
+          description: Date-time when the notification was created. Note that this is independent of time that the event itself occurred. The time the event occurred may be present in the notification content.
+          type: string
+          example: '2019-01-01T12:00:00.000Z'
+        content:
+          oneOf:
+            - $ref: '#/components/schemas/NotificationContent'
+            - $ref: '#/components/schemas/CommercialBpsNotificationContent'
+          discriminator:
+            propertyName: subject
+            mapping:
+              PAYMENT_AUTHORIZATION: '#/components/schemas/NotificationContent'
+              PAYMENT_UPDATE: '#/components/schemas/CommercialBpsNotificationContent'
+
+    NotificationsWrapper:
+      description: The envelope that contains a number of notifications. The notifications delivered in the envelope may be a subset of the overall collection, due to pagination of the result set.
+      type: object
+      properties:
+        count:
+          description: The number of notifications in this envelope
+          type: integer
+          example: '10'
+        offset:
+          description: Used for pagination - the offset into the overall notification collection at which these notifications begin
+          type: integer
+          example: '0'
+        limit:
+          description: Used for pagination - the limit or page size is specified (or defaulted) in the request and returned in the response. Each response page will contain at most this number of notifications
+          type: integer
+          example: '5'
+        total:
+          description: The total number of notifications that are available to be returned in response to the request
+          type: integer
+          format: int64
+          example: '10000'
+        notifications:
+          description: The list of notifications in this wrapper structure
+          type: array
+          items:
+            $ref: '#/components/schemas/notification'
+
+
+
+    Error-400:
+      type: object
+      required:
+        - "Errors"
+      properties:
+        Errors:
+          type: object
+          required:
+            - "Error"
+          properties:
+            Error:
+              type: array
+              items:
+                type: object
+                properties:
+                  Source:
+                    type: string
+                    description: The origin of the error
+                    example: Commercial Event Notifications
+                  ReasonCode:
+                    type: string
+                    description: A unique error code representing the error that occurred
+                    example: format.invalid
+                  Description:
+                    type: string
+                    description: A developer-friendly description of the error that occurred
+                    example: One or more fields contain invalid data
+                  Recoverable:
+                    type: boolean
+                    description: Can the error be recovered by retrying the same request later?
+                    example: false
+                  Details:
+                    type: string
+                    description: Additional details regarding the error that occurred
+                    example: Invalid content in request payload
+    Error-403:
+      type: object
+      required:
+        - "Errors"
+      properties:
+        Errors:
+          type: object
+          required:
+            - "Error"
+          properties:
+            Error:
+              type: array
+              items:
+                type: object
+                properties:
+                  Source:
+                    type: string
+                    description: The origin of the error
+                    example: Commercial Event Notifications
+                  ReasonCode:
+                    type: string
+                    description: A unique error code representing the error that occurred
+                    example: subscriber.notAllowed
+                  Description:
+                    type: string
+                    description: A developer-friendly description of the error that occurred
+                    example: Access not allowed
+                  Recoverable:
+                    type: boolean
+                    description: Can the error be recovered by retrying the same request later?
+                    example: false
+                  Details:
+                    type: string
+                    description: Additional details regarding the error that occurred
+                    example: Subscriber with consumerKey 'INVALID_CONSUMER_KEY' doesn't have permissions to complete the request
+
+    Error-404:
+      type: object
+      required:
+        - "Errors"
+      properties:
+        Errors:
+          type: object
+          required:
+            - "Error"
+          properties:
+            Error:
+              type: array
+              items:
+                type: object
+                properties:
+                  Source:
+                    type: string
+                    description: The origin of the error
+                    example: Commercial Event Notifications
+                  ReasonCode:
+                    type: string
+                    description: A unique error code representing the error that occurred
+                    example: resource.not.found
+                  Description:
+                    type: string
+                    description: A developer-friendly description of the error that occurred
+                    example: The resource provided is not found
+                  Recoverable:
+                    type: boolean
+                    description: Can the error be recovered by retrying the same request later?
+                    example: false
+                  Details:
+                    type: string
+                    description: Additional details regarding the error that occurred
+                    example: The specified resource was not found
+
+    Error-500:
+      type: object
+      required:
+        - "Errors"
+      properties:
+        Errors:
+          type: object
+          required:
+            - "Error"
+          properties:
+            Error:
+              type: array
+              items:
+                type: object
+                properties:
+                  Source:
+                    type: string
+                    description: The origin of the error
+                    example: Commercial Event Notifications
+                  ReasonCode:
+                    type: string
+                    description: A unique error code representing the error that occurred
+                    example: server.error
+                  Description:
+                    type: string
+                    description: A developer-friendly description of the error that occurred
+                    example: Internal server error
+                  Recoverable:
+                    type: boolean
+                    description: Can the error be recovered by retrying the same request later?
+                    example: true
+                  Details:
+                    type: string
+                    description: Additional details regarding the error that occurred
+                    example: An unexpected error has occurred with the service you have requested
+  examples:
+    SubscriptionWithChildSpecification:
+      value:
+        name: Enter_unique_subscription_name_here
+        subjectType: PAYMENT_AUTHORIZATION
+        active: true
+        specifications:
+          - type: FIELD
+            operator: WHERE
+            children:
+              - type: FIELD
+                operator: AND
+                fieldMappingName: purchaseRequest.rcnAlias
+                fieldOperator: EQUALS
+                expectedContent:
+                  value: "Travel Expense RCN"
+                  contentType: TEXT
+                children: []
+            fieldMappingName: purchaseRequest.rcnAlias
+            fieldOperator: EQUALS
+            expectedContent:
+              value: BOC
+              contentType: TEXT
+      summary: With Child Specification
+
+    GetNotificationResponse:
+      value:
+        count: 10,
+        offset: 0,
+        limit: 5,
+        total: 10000,
+        notifications: [
+          {
+            subject: PAYMENT_AUTHORIZATION,
+            subscriptionName: subscription name,
+            pushStatus: DELIVERED,
+            createdTimestamp: '2019-01-01T12:00:00.000Z',
+            content: {
+              messageTypeIndicator: 0110,
+              systemTraceAuditNumber: 011174,
+              financialNetworkCode: MCC,
+              banknetReferenceNumber: Q4A91A,
+              transactionAmount: 7550,
+              transactionCurrencyCode: USD,
+              billingAmount: 7550,
+              billingCurrencyCode: USD,
+              responseCode: 00,
+              authorizationCode: 502359,
+              transmissionRawDate: 1103,
+              transmissionRawTime: 101611,
+              settlementDate: 0930,
+              cardHolderTransactionTypeCode: 00,
+              posTransactionStatus: 0,
+              traceId: MCC9999991231  ,
+              merchant: {
+                merchantId: 497520000000000,
+                categoryCode: 5542,
+                name: JASPERHITECH,
+                city: Jasper,
+                stateOrCountryCode: TN
+              },
+              realPaymentCard: {
+                number: '************0112',
+                expiryMonth: 12,
+                expiryYear: 24
+              },
+              virtualPaymentCard: {
+                number: '************6213',
+                expiryMonth: 09,
+                expiryYear: 27
+              },
+              inControlOnBehalfServiceResult: {
+                rcnServiceResultCode: ,
+                vcnServiceResultCode: V
+              },
+              originalMessage: {
+                messageTypeIndicator: 0110,
+                systemTraceAuditNumber: 11174,
+                transmissionRawDateTime: 1029112800
+              },
+              advice: {
+                reasonCode: 650
+              },
+              replacementAmounts: {
+                transactionAmount: 1200,
+                settlementAmount: 1200,
+                billingAmount: 1200
+              },
+              purchaseRequest: {
+                purchaseRequestId: 5213,
+                rcnAlias: Travel Expense RCN,
+                companyId: 233191,
+                companyGuid: SENTTY9951972A6FC0206CB494B560E5E6DC5D02A2BD21D89612EF4A18358ECC777DCF1494921797,
+                issuerGuid: SENTTY5E4C4B4E0D1BF5991E64A1E0745F40A85B2510CE48EB537011DCED3C483669D61494938440
+              }
+            }
+          },
+          {
+            subject: PAYMENT_UPDATE,
+            subscriptionName: subscription name,
+            pushStatus: DELIVERED,
+            createdTimestamp: '2019-01-01T12:00:00.000Z',
+            content: {
+              source: BPS,
+              purchaseRequestId: 360147,
+              bpsTransactionId: 65098ff7-54f9-42fe-b89c-3fff8470658c,
+              status: APPROVED,
+              updatedDate: '2021-09-08T16:06:11.598505Z',
+              transactionIdentification: {
+                approvalCode: SUBMITTED,
+                retrievalReferenceNumber: testRetrievalReferenceNumber,
+                transactionReference: testTransactionReference,
+                transactionDateTime: '2021-08-17T17:37:23.230Z'
+              },
+              statusReasonInformation: {
+                reasonCode: ALT_MOP_NOT_BPS,
+                description: 'Transaction 1fc96a00-7b74-4879-ab88-d70b2b03ff1f has failed, walmart@track does not accept BPS payment from this kohls.bpahkadam.pay@track.'
+              }
+            }
+          },
+          {
+            subject: PAYMENT_UPDATE,
+            subscriptionName: Consumer_S1,
+            pushStatus: DELIVERED,
+            createdTimestamp: '2021-09-08T20:28:20.853Z',
+            content: {
+              source: BPS,
+              purchaseRequestId: 819724,
+              bpsTransactionId: null,
+              status: null,
+              updatedDate: null,
+              transactionIdentification: null,
+              statusReasonInformation: null,
+              errors: {
+                error: [
+                  {
+                    reasonCode: INVALID_INSTRUCTED_AMT,
+                    description: Invalid instructed amount, instructed amount reconciliation error
+                  }
+                ]
+              }
+            }
+          }
+        ]
+
+    GetSubscriptionResponse:
+      value:
+        [
+          {
+            id: CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724070,
+            name: Enter_unique_subscription_name_here,
+            subjectType: PAYMENT_AUTHORIZATION,
+            subscriberId: CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724071,
+            active: true,
+            specifications: [
+              {
+                id: CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724072,
+                type: FIELD,
+                operator: WHERE,
+                fieldMapping: {
+                  id: CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724073,
+                  name: purchaseRequest.rcnAlias,
+                  displayName: Purchase request RCN alias,
+                  subjectType: PAYMENT_AUTHORIZATION,
+                  contentType: TEXT
+                },
+                fieldOperator: EQUALS,
+                expectedContent: {
+                  contentType: TEXT,
+                  value: Travel Expense RCN,
+                  anotherValue: {}
+                },
+                children: [
+                    string
+                ]
+              }
+            ]
+          },
+          {
+            id: ABSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724070,
+            name: SubscriptionName,
+            subjectType: PAYMENT_UPDATE,
+            subscriberId: CNSa91bf379b48a593fd17f07f431bad8fb296796498f4e9982ea134394c1fa4f071556724071,
+            active: true,
+            specifications: []
+          }
+        ]
+
+
